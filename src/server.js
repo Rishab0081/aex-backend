@@ -16,7 +16,7 @@ dotenv.config();
 const app = express();
 
 /* =========================
-   ✅ CORS CONFIG (FIXED)
+   ✅ CORS CONFIG (FINAL FIX)
 ========================= */
 
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
@@ -24,15 +24,24 @@ const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .map(origin => origin.trim())
   .filter(Boolean);
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-// 🔥 CRITICAL: handle preflight properly
-app.options("*", cors());
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+  // 🔥 Handle preflight
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 /* =========================
    ✅ MIDDLEWARE
