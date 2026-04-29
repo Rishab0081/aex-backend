@@ -15,26 +15,35 @@ dotenv.config();
 
 const app = express();
 
-// ✅ CORS setup
+/* =========================
+   ✅ CORS CONFIG (FIXED)
+========================= */
+
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((origin) => origin.trim())
+  .map(origin => origin.trim())
   .filter(Boolean);
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
+  origin: allowedOrigins,
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+// 🔥 CRITICAL: handle preflight properly
+app.options("*", cors());
+
+/* =========================
+   ✅ MIDDLEWARE
+========================= */
 
 app.use(express.json());
 
-// ✅ Routes
+/* =========================
+   ✅ ROUTES
+========================= */
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
@@ -44,7 +53,10 @@ app.use("/teams", teamRoutes);
 app.use("/matches", matchRoutes);
 app.use("/leaderboard", leaderboardRoutes);
 
-// ✅ Error handler
+/* =========================
+   ✅ ERROR HANDLER
+========================= */
+
 app.use((err, _req, res, _next) => {
   console.error("Unhandled server error:", err.message);
   res.status(500).json({
@@ -53,7 +65,10 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-// ✅ Start server properly
+/* =========================
+   ✅ SERVER START
+========================= */
+
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
@@ -61,7 +76,7 @@ const startServer = async () => {
     await connectDB();
     console.log("MongoDB connected");
 
-    const server = http.createServer(app); // ✅ only one server
+    const server = http.createServer(app);
 
     const io = new SocketServer(server, {
       cors: {
