@@ -16,32 +16,36 @@ dotenv.config();
 const app = express();
 
 /* =========================
-   ✅ CORS CONFIG (FINAL FIX)
+   ✅ CORS (CLEAN & CORRECT)
 ========================= */
+
 
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
   .map(origin => origin.trim())
   .filter(Boolean);
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true); // allow Postman / server calls
 
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 
-  // 🔥 Handle preflight
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
+app.options("*", cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
+}));
 
 /* =========================
    ✅ MIDDLEWARE
@@ -63,14 +67,14 @@ app.use("/matches", matchRoutes);
 app.use("/leaderboard", leaderboardRoutes);
 
 /* =========================
-   ✅ ERROR HANDLER
+   ✅ ERROR HANDLER (LAST)
 ========================= */
 
-app.use((err, _req, res, _next) => {
-  console.error("Unhandled server error:", err.message);
+app.use((err, req, res, next) => {
+  console.error(err.stack);
   res.status(500).json({
     success: false,
-    message: "Internal server error",
+    message: err.message || "Internal server error",
   });
 });
 
@@ -97,11 +101,7 @@ const startServer = async () => {
     setSocketIO(io);
 
     io.on("connection", (socket) => {
-      console.log(`Socket connected: ${socket.id}`);
-
-      socket.on("disconnect", () => {
-        console.log(`Socket disconnected: ${socket.id}`);
-      });
+      console.log("Socket connected:", socket.id);
     });
 
     server.listen(PORT, "0.0.0.0", () => {
@@ -109,7 +109,7 @@ const startServer = async () => {
     });
 
   } catch (error) {
-    console.error("Server startup failed:", error.message);
+    console.error("Startup error:", error.message);
     process.exit(1);
   }
 };
